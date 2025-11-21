@@ -28,6 +28,9 @@ class FiberTechnicAPI:
 
         self.SESSION = self.login_and_get_session()
 
+        if self.SESSION is None:
+            raise ConnectionError("Failed to login to the modem. Check credentials or connection.")
+
     def get_password_hash(self, password: str) -> str:
         #password is hashed to be send to modem by md5
         hash_bytes = hashlib.md5(password.encode())
@@ -59,9 +62,16 @@ class FiberTechnicAPI:
                 return None
 
             if data.get("code") == 0:
+
+                token = data.get("token")
+                if token:
+                    session.headers.update({"Authorization": token})
+                
                 cookie = session.cookies.get_dict().get("session")
-                self.HEADER["Cookie"] = f"session={cookie}"
-                session.headers.update({"Authorization": cookie})
+                if cookie:
+                    self.HEADER["Cookie"] = f"session={cookie}"
+                    session.headers.update({"Authorization": cookie})
+
                 print(f"Signed successfully {datetime.datetime.now()}")
 
                 if debug:
@@ -91,16 +101,18 @@ class FiberTechnicAPI:
                 return data
             else:
                 print(f"Error while fetching data. Code: {data.get('code')}")
+                return data
                 
         except Exception as e:
             print(f"Error while fetching data: {e}")
+            return None
         
     def send_post(self, payload: dict, debug=False) -> dict:
         """
         Sends POST request to device returns response
         """
         try:
-            response = self.SESSION.post(self.POST_URL, params=payload)
+            response = self.SESSION.post(self.POST_URL, json=payload)
             data = response.json()
             
             if data.get("code") == 0:
@@ -109,6 +121,8 @@ class FiberTechnicAPI:
                 return data
             else:
                 print(f"While fetching data. Code: {data.get('code')}")
+                return data
                 
         except Exception as e:
             print(f"Error while fetching data: {e}")
+            return None
